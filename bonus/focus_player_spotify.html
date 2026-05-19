@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Focus Player — музика для роботи (з MongoDB-вибірки)</title>
+<style>
+  :root { color-scheme: dark; }
+  body {
+    margin: 0; padding: 32px;
+    background: #121212; color: #e8e8e8;
+    font-family: -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
+  }
+  header { max-width: 980px; margin: 0 auto 24px; }
+  h1 { font-size: 22px; margin: 0 0 6px; }
+  .sub { color: #9a9a9a; font-size: 13px; line-height: 1.5; }
+  code { background: #232323; padding: 1px 5px; border-radius: 4px; font-size: 12px; }
+  .grid {
+    max-width: 980px; margin: 0 auto;
+    display: grid; grid-template-columns: repeat(auto-fill, minmax(440px, 1fr));
+    gap: 16px;
+  }
+  .card { background: #181818; border: 1px solid #262626; border-radius: 12px; padding: 14px; }
+  .meta { display: flex; align-items: baseline; gap: 8px; margin: 0 0 4px; }
+  .rank { color: #1db954; font-weight: 700; font-size: 13px; min-width: 24px; }
+  .title { font-weight: 600; font-size: 15px; }
+  .artist { color: #b3b3b3; font-size: 13px; }
+  .stats { color: #7d7d7d; font-size: 11px; margin: 2px 0 10px 32px; }
+  iframe { display: block; border-radius: 10px; }
+  footer { max-width: 980px; margin: 28px auto 0; color: #6e6e6e; font-size: 12px; line-height: 1.6; }
+</style>
+</head>
+<body>
+<header>
+  <h1>🎧 Музика для роботи</h1>
+  <p class="sub">
+    Згенеровано з колекції <code>tracks</code> у MongoDB запитом Частини 2 (завд. 4):
+    <code>loudness &lt; -10</code>, <code>speechiness &lt; 0.1</code>,
+    <code>instrumentalness &gt; 0.5</code>, <code>explicit: false</code>.
+    Дедуплікація за <code>track_id</code>, сортування за <code>popularity</code>.
+    Плеєри живі (Spotify embed): 30-сек прев'ю без входу, повний трек — із залогіненим Spotify Premium.
+  </p>
+</header>
+<div class="grid" id="grid"></div>
+<footer>
+  Це не частина домашнього завдання — окремий експеримент: перевірка, що
+  <code>track_id</code> з датасета ведуть на реальні треки Spotify, а Mongo-вибірка
+  працює як справжній рекомендатор за аудіо-профілем.
+</footer>
+<script>
+const tracks = [
+  {"r":1,"track_name":"everything i wanted","artists":["Billie Eilish"],"popularity":86,"energy":0.225,"tempo":120,"track_id":"3ZCTVFBt2Brf31RLEnCkWJ"},
+  {"r":2,"track_name":"Clean White Noise - Loopable with no fade","artists":["White Noise Baby Sleep","White Noise for Babies"],"popularity":85,"energy":0.00342,"tempo":0,"track_id":"2bRKxuH1o7pTmb1y4GfdEc"},
+  {"r":3,"track_name":"Experience","artists":["Ludovico Einaudi","Daniel Hope","I Virtuosi Italiani"],"popularity":79,"energy":0.449,"tempo":92,"track_id":"1BncfTJAWxrsxyT9culBrj"},
+  {"r":4,"track_name":"Show Me How","artists":["Men I Trust"],"popularity":79,"energy":0.267,"tempo":166,"track_id":"01TyFEZu6mHbffsVfxgrFn"},
+  {"r":5,"track_name":"K.","artists":["Cigarettes After Sex"],"popularity":78,"energy":0.4,"tempo":94,"track_id":"1FWsomP9StpCcXNWmJk8Cl"},
+  {"r":6,"track_name":"i was all over her","artists":["salvia palth"],"popularity":77,"energy":0.353,"tempo":105,"track_id":"7svpAkwc6xaSxlbZ7V7JiS"},
+  {"r":7,"track_name":"Cry","artists":["Cigarettes After Sex"],"popularity":76,"energy":0.399,"tempo":143,"track_id":"3p4hRhMcb6ch8OLtATMaLw"},
+  {"r":8,"track_name":"Blondie","artists":["Current Joys"],"popularity":76,"energy":0.626,"tempo":122,"track_id":"7sIx70dGj3VBiHWr0KZXfD"},
+  {"r":9,"track_name":"Losing Interest","artists":["itssvd","Shiloh Dynasty"],"popularity":76,"energy":0.355,"tempo":112,"track_id":"55XrFge2dEZwYzNl128DwN"},
+  {"r":10,"track_name":"M.","artists":["Anıl Emre Daldal"],"popularity":75,"energy":0.366,"tempo":100,"track_id":"6wfb4nI2Vih263JqC8WSoW"},
+  {"r":11,"track_name":"Anchor","artists":["Novo Amor"],"popularity":75,"energy":0.407,"tempo":117,"track_id":"7qH9Z4dJEN0l9bidizW7fq"},
+  {"r":12,"track_name":"Dumb","artists":["Nirvana"],"popularity":75,"energy":0.395,"tempo":114,"track_id":"5gRcv46AMTrosmTOqrOV3Q"},
+  {"r":13,"track_name":"Cornfield Chase","artists":["Hans Zimmer"],"popularity":74,"energy":0.226,"tempo":94,"track_id":"6pWgRkpqVfxnj3WuIcJ7WP"},
+  {"r":14,"track_name":"Herinneringen","artists":["Sohn Aelia"],"popularity":74,"energy":0.00342,"tempo":74,"track_id":"0CMYUXTTTmI6Lwc0opH2XG"},
+  {"r":15,"track_name":"Comptine d'un autre été, l'après-midi","artists":["Yann Tiersen"],"popularity":73,"energy":0.192,"tempo":101,"track_id":"14rZjW3RioG7WesZhYESso"},
+  {"r":16,"track_name":"Born To Be Wild","artists":["Steppenwolf"],"popularity":73,"energy":0.71,"tempo":146,"track_id":"63OFKbMaZSDZ4wtesuuq6f"},
+  {"r":17,"track_name":"Nuvole Bianche","artists":["Ludovico Einaudi"],"popularity":73,"energy":0.0582,"tempo":133,"track_id":"3weNRklVDqb4Rr5MhKBR3D"},
+  {"r":18,"track_name":"Time","artists":["Hans Zimmer"],"popularity":72,"energy":0.0968,"tempo":63,"track_id":"6ZFbXIJkuI1dVNWvzJzown"}
+];
+const esc = s => s.replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+document.getElementById('grid').innerHTML = tracks.map(t => `
+  <div class="card">
+    <div class="meta">
+      <span class="rank">#${t.r}</span>
+      <span class="title">${esc(t.track_name)}</span>
+    </div>
+    <div class="artist" style="margin-left:32px">${esc(t.artists.join(', '))}</div>
+    <div class="stats">popularity ${t.popularity} · energy ${t.energy} · tempo ${t.tempo} BPM</div>
+    <iframe src="https://open.spotify.com/embed/track/${t.track_id}"
+            width="100%" height="152" frameborder="0"
+            loading="lazy" allow="encrypted-media"></iframe>
+  </div>`).join('');
+</script>
+</body>
+</html>

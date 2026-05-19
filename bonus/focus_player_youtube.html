@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Focus Player (YouTube) — музика для роботи з MongoDB-вибірки</title>
+<style>
+  :root { color-scheme: dark; }
+  body {
+    margin: 0; padding: 32px;
+    background: #0f0f0f; color: #e8e8e8;
+    font-family: -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
+  }
+  header { max-width: 980px; margin: 0 auto 24px; }
+  h1 { font-size: 22px; margin: 0 0 6px; }
+  .sub { color: #9a9a9a; font-size: 13px; line-height: 1.5; }
+  code { background: #232323; padding: 1px 5px; border-radius: 4px; font-size: 12px; }
+  .grid {
+    max-width: 980px; margin: 0 auto;
+    display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+    gap: 14px;
+  }
+  .card {
+    background: #181818; border: 1px solid #262626; border-radius: 12px;
+    padding: 14px 16px; display: flex; flex-direction: column; gap: 6px;
+  }
+  .meta { display: flex; align-items: baseline; gap: 8px; }
+  .rank { color: #ff4d4f; font-weight: 700; font-size: 13px; min-width: 26px; }
+  .title { font-weight: 600; font-size: 15px; }
+  .artist { color: #b3b3b3; font-size: 13px; margin-left: 34px; }
+  .stats { color: #6e6e6e; font-size: 11px; margin-left: 34px; }
+  .links { margin: 8px 0 0 34px; display: flex; gap: 10px; flex-wrap: wrap; }
+  a.btn {
+    text-decoration: none; font-size: 13px; font-weight: 600;
+    padding: 7px 14px; border-radius: 20px; display: inline-block;
+  }
+  a.yt  { background: #ff0000; color: #fff; }
+  a.ytm { background: #2a2a2a; color: #e8e8e8; border: 1px solid #3a3a3a; }
+  a.btn:hover { opacity: .85; }
+  footer { max-width: 980px; margin: 28px auto 0; color: #6e6e6e; font-size: 12px; line-height: 1.6; }
+</style>
+</head>
+<body>
+<header>
+  <h1>🎧 Музика для роботи — YouTube-версія</h1>
+  <p class="sub">
+    Та сама вибірка з MongoDB (Частина 2, завд. 4:
+    <code>loudness &lt; -10</code>, <code>speechiness &lt; 0.1</code>,
+    <code>instrumentalness &gt; 0.5</code>, <code>explicit: false</code>),
+    але посилання ведуть у пошук YouTube / YouTube Music за «виконавець + назва».
+    Spotify-версія недоступна через мережеву блокування, тут — обхід без API-ключа.
+  </p>
+</header>
+<div class="grid" id="grid"></div>
+<footer>
+  Окремий експеримент, не частина домашнього завдання. Список треків
+  згенеровано Mongo-запитом; YouTube використовується лише як доступний
+  спосіб відтворення (точного videoID у датасеті немає, тому це пошук, а не
+  вбудований плеєр).
+</footer>
+<script>
+const tracks = [
+  {"r":1,"track_name":"everything i wanted","artists":["Billie Eilish"],"popularity":86,"energy":0.225,"tempo":120},
+  {"r":2,"track_name":"Clean White Noise - Loopable with no fade","artists":["White Noise Baby Sleep"],"popularity":85,"energy":0.00342,"tempo":0},
+  {"r":3,"track_name":"Experience","artists":["Ludovico Einaudi"],"popularity":79,"energy":0.449,"tempo":92},
+  {"r":4,"track_name":"Show Me How","artists":["Men I Trust"],"popularity":79,"energy":0.267,"tempo":166},
+  {"r":5,"track_name":"K.","artists":["Cigarettes After Sex"],"popularity":78,"energy":0.4,"tempo":94},
+  {"r":6,"track_name":"i was all over her","artists":["salvia palth"],"popularity":77,"energy":0.353,"tempo":105},
+  {"r":7,"track_name":"Cry","artists":["Cigarettes After Sex"],"popularity":76,"energy":0.399,"tempo":143},
+  {"r":8,"track_name":"Blondie","artists":["Current Joys"],"popularity":76,"energy":0.626,"tempo":122},
+  {"r":9,"track_name":"Losing Interest","artists":["itssvd","Shiloh Dynasty"],"popularity":76,"energy":0.355,"tempo":112},
+  {"r":10,"track_name":"M.","artists":["Anıl Emre Daldal"],"popularity":75,"energy":0.366,"tempo":100},
+  {"r":11,"track_name":"Anchor","artists":["Novo Amor"],"popularity":75,"energy":0.407,"tempo":117},
+  {"r":12,"track_name":"Dumb","artists":["Nirvana"],"popularity":75,"energy":0.395,"tempo":114},
+  {"r":13,"track_name":"Cornfield Chase","artists":["Hans Zimmer"],"popularity":74,"energy":0.226,"tempo":94},
+  {"r":14,"track_name":"Herinneringen","artists":["Sohn Aelia"],"popularity":74,"energy":0.00342,"tempo":74},
+  {"r":15,"track_name":"Comptine d'un autre été, l'après-midi","artists":["Yann Tiersen"],"popularity":73,"energy":0.192,"tempo":101},
+  {"r":16,"track_name":"Born To Be Wild","artists":["Steppenwolf"],"popularity":73,"energy":0.71,"tempo":146},
+  {"r":17,"track_name":"Nuvole Bianche","artists":["Ludovico Einaudi"],"popularity":73,"energy":0.0582,"tempo":133},
+  {"r":18,"track_name":"Time","artists":["Hans Zimmer"],"popularity":72,"energy":0.0968,"tempo":63}
+];
+const esc = s => s.replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+document.getElementById('grid').innerHTML = tracks.map(t => {
+  const q = encodeURIComponent(t.artists.join(' ') + ' ' + t.track_name);
+  return `
+  <div class="card">
+    <div class="meta">
+      <span class="rank">#${t.r}</span>
+      <span class="title">${esc(t.track_name)}</span>
+    </div>
+    <div class="artist">${esc(t.artists.join(', '))}</div>
+    <div class="stats">popularity ${t.popularity} · energy ${t.energy} · tempo ${t.tempo} BPM</div>
+    <div class="links">
+      <a class="btn yt"  target="_blank" rel="noopener"
+         href="https://www.youtube.com/results?search_query=${q}">▶ YouTube</a>
+      <a class="btn ytm" target="_blank" rel="noopener"
+         href="https://music.youtube.com/search?q=${q}">YouTube Music</a>
+    </div>
+  </div>`;
+}).join('');
+</script>
+</body>
+</html>
